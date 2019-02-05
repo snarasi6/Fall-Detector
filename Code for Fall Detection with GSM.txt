@@ -1,0 +1,148 @@
+#include<Wire.h>
+#include <SoftwareSerial.h>
+int16_t ax,ay,az;
+int16_t gyrx,gyry,gyrz;
+SoftwareSerial mySerial(9,10);
+void setup() {
+   pinMode(7,INPUT);
+   digitalWrite(7,HIGH);
+   pinMode(13,OUTPUT);//inbuilt function
+   Wire.begin();//to begin the I2C communication
+   mpuinit();
+   mySerial.begin(9600);   // Setting the baud rate of GSM Module  
+   Serial.begin(9600);    // Setting the baud rate of Serial Monitor (Arduino)
+   Serial.println("Hello1");
+   delay(100);
+}
+
+void loop() {
+   Serial.println("Hello2");
+   recordAccelRegisters();//to get the register values of acc
+   recordGyroRegisters();//to get the register values of gyro
+   check();//to manupulate the threshold
+   printData();//to print in serial monitor
+   delay(400);
+  
+  if (mySerial.available()>0)
+   Serial.write(mySerial.read());
+}
+void check()
+{
+  int val;
+  val = digitalRead(7);
+  if((abs(gyry)>20000)||(abs(gyrx)>20000)||(ay<9000)||(abs(ax)>10000))
+  {
+    digitalWrite(13,HIGH);
+    tone(13,1000);
+    SendMessage();
+    delay(5000);
+  }
+  /*if((abs(gyry)>20000)||(abs(gyrx)>20000)||(ay<9000)||(abs(ax)>10000))
+  {
+    digitalWrite(13,HIGH);
+    tone(13,1000);
+    delay(1000);
+    if(val==0){
+      SendMessage();
+      delay(5000);
+      noTone(13); 
+    }
+  }*/
+  else
+  {
+    digitalWrite(13,LOW);
+    noTone(13);
+  }
+}
+void recordAccelRegisters() {
+  Wire.beginTransmission(0x68);
+  Wire.write(0x3B);//Accelero meter values are stored in freq of 8 Mhz
+  Wire.endTransmission(false);
+  //Serial.println(stat);
+  Wire.requestFrom(0x68,6,true);
+  //stat=Wire.available();
+  //Serial.println(stat);
+ // while(Wire.available()<6)
+   ax=Wire.read()<<8|Wire.read();
+     ay=Wire.read()<<8|Wire.read();
+     az=Wire.read()<<8|Wire.read();
+     //Serial.print(ax);
+     //Serial.print(ay);
+     //Serial.println(az);
+     //processAccelData();
+  
+  }
+ /* void processAccelData() {
+  gx=ax/4096.0;
+  gy=ay/4096.0;
+  gz=az/4096.0;
+  }*/
+  void recordGyroRegisters() {
+  Wire.beginTransmission(0x68);
+  Wire.write(0x43);//Gyroscope values are stored in freq of 8 Mhz
+  Wire.endTransmission(false);
+  Wire.requestFrom(0b01101000,6);
+ // while(Wire.available()<6)
+     gyrx=Wire.read()<<8|Wire.read();
+     gyry=Wire.read()<<8|Wire.read();
+     gyrz=Wire.read()<<8|Wire.read();
+     //processGyroData();
+  
+  }
+    /*void processGyroData() {
+  rotx=gyrx/131.0
+  ;
+  roty=gyry/131.0;
+  rotz=gyrz/131.0;
+  }*/
+  void mpuinit()
+{  Wire.beginTransmission(0x68);//address of MPU6050 device
+   Wire.write(0x6B);//6B is address of power management register
+   Wire.write(0);// initialise power supply for 6B register
+   Wire.endTransmission(true);
+   Wire.beginTransmission(0x68);
+   Wire.write(0x1B);// accelerometer
+   Wire.write(0x00);
+   Wire.endTransmission(true);
+   Wire.beginTransmission(0x68);
+   Wire.write(0x1C);//gyroscope
+   Wire.write(0x00);
+   Wire.endTransmission(true);
+} 
+
+void printData() {
+  Serial.print("Gyro" );
+  Serial.print(" X=");
+  Serial.print(gyrx);
+  Serial.print(" Y=");
+  Serial.print(gyry);
+  Serial.print(" Z=");
+  Serial.print(gyrz);
+  Serial.print(" Accel" );
+  Serial.print(" X=");
+  Serial.print(ax);
+  Serial.print(" Y=");
+  Serial.print(ay);
+  Serial.print(" Z=");
+  Serial.println(az);
+}
+void SendMessage()
+{
+  Serial.println("Reached Send Message");
+  mySerial.println("AT+CMGF=1");    //Sets the GSM Module in Text Mode
+  delay(1000);  // Delay of 1000 milli seconds or 1 second
+  mySerial.println("AT+CMGS=\"<Insert just the phone number with +countrycode>\"\r"); // Replace x with mobile number
+  delay(1000);
+  mySerial.println("Fall has been detected");// The SMS text you want to send
+  delay(100);
+  mySerial.println((char)26);
+  makeCall();
+  delay(10000);
+}
+
+
+void makeCall()
+{
+  Serial.println("Reached making call");
+  mySerial.println("ATD8220296635;");
+}
